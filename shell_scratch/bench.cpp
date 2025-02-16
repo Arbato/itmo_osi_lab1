@@ -22,7 +22,7 @@ void worker_thread(int iterations, const string& program) {
         } else if (program == "dedup") {
             long arr_size = 10000;  // Default size
             size_t unique_count = dedup(arr_size);
-            printf("Iteration %d: Unique elements = %zu\n", i + 1, unique_count);
+            //printf("Iteration %d: Unique elements = %zu\n", i + 1, unique_count);
         }
     }
 }

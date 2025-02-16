@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <cstdlib>
 
+#include <iterator>
 using namespace std;
 
 /**

@@ -2,104 +2,50 @@
 #include <cstdlib>
 #include <climits>
 #include <cstdio>
-
-
-
-
-
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <chrono>
-#include <cstdlib>
+#include <fcntl.h>
+#include <unistd.h>
 #include <sys/time.h>
-#include <cstdio>
+#include <sys/types.h>
+#include <cstring>
 
 #define BLOCK_SIZE 4096  // Define block size for I/O latency test
 
 using namespace std;
 
 /**
- * Allocates a buffer of BLOCK_SIZE bytes.
+ * Allocates a buffer of BLOCK_SIZE bytes, aligned for O_DIRECT.
  */
 char* allocBuffer() {
-    char* buf = new char[BLOCK_SIZE];
-    if (!buf) {
-        cerr << "Error: Memory allocation failed." << endl;
+    char* buf;
+    if (posix_memalign((void**)&buf, BLOCK_SIZE, BLOCK_SIZE) != 0) {
+        perror("Memory alignment failed");
         exit(EXIT_FAILURE);
     }
+    memset(buf, 0, BLOCK_SIZE);  // Ensure buffer is zeroed
     return buf;
-}
-
-/**
- * Measures the I/O write latency by writing BLOCK_SIZE chunks to a file.
- */
-void ioLatencyWrite(const string& filename, long repetitions) {
-    FILE* file = fopen(filename.c_str(), "wb");
-    if (!file) {
-        cerr << "Error: Cannot open file " << filename << endl;
-        exit(EXIT_FAILURE);
-    }
-
-    char* buf = allocBuffer();
-
-    for (long i = 0; i < repetitions; ++i) {
-        setvbuf(file, NULL, _IONBF, 0);  // Disable buffering
-
-        struct timeval start, stop;
-        gettimeofday(&start, NULL);
-
-        size_t written = fwrite(buf, sizeof(char), BLOCK_SIZE, file);
-
-        gettimeofday(&stop, NULL);
-
-        if (written != BLOCK_SIZE) {
-            cerr << "Error: Writing to file failed." << endl;
-            fclose(file);
-            delete[] buf;
-            exit(EXIT_FAILURE);
-        }
-
-        double elapsedTime = (stop.tv_sec - start.tv_sec) * 1e6 + (stop.tv_usec - start.tv_usec);
-        cout << "Iteration " << i + 1 << ": Write latency = " << elapsedTime << " microseconds" << endl;
-    }
-
-    fclose(file);
-    delete[] buf;
 }
 
 /**
  * Main function to execute the I/O latency write benchmark.
  */
 size_t io_lat_write(string filename) {
-    FILE* file = fopen(filename.c_str(), "wb");
-    if (!file) {
-        cerr << "Error: Cannot open file " << filename << endl;
+    int fd = open(filename.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT, 0644);
+    if (fd == -1) {
+        perror("Error opening file");
         exit(EXIT_FAILURE);
     }
-
-    char* buf = allocBuffer();
-
-    setvbuf(file, NULL, _IONBF, 0);  // Disable buffering
 
     struct timeval start, stop;
-    gettimeofday(&start, NULL);
 
-    size_t written = fwrite(buf, sizeof(char), BLOCK_SIZE, file);
+    char* buf = allocBuffer();  
 
-    gettimeofday(&stop, NULL);
+    ssize_t written = write(fd, buf, BLOCK_SIZE);  
 
-    if (written != BLOCK_SIZE) {
-        cerr << "Error: Writing to file failed." << endl;
-        fclose(file);
-        delete[] buf;
-        exit(EXIT_FAILURE);
+    if (written == -1) {
+        perror("Error writing to file");
     }
 
-    fclose(file);
-    delete[] buf;
+    close(fd);
+    free(buf);  // Free aligned buffer
     return 1;
 }
-
- 
-
